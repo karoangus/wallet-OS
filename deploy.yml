@@ -1,0 +1,90 @@
+name: Build & Deploy WalletOS to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Inject asset URLs into Service Worker
+        run: |
+          # لیست فایل‌های build‌شده (hashed) رو به SW اضافه می‌کنیم
+          ASSET_FILES=$(find dist/assets -type f | sed 's|dist||' | tr '\n' ',' | sed 's/,$//')
+          echo "Found assets: $ASSET_FILES"
+          # آدرس‌های asset رو به SHELL_URLS اضافه کن
+          python3 << 'PYEOF'
+          import os, glob, re
+
+          dist_root = "dist"
+          sw_path = os.path.join(dist_root, "sw.js")
+
+          # همه فایل‌های آفلاین‌شدنی رو پیدا کن
+          asset_urls = []
+          for filepath in glob.glob(f"{dist_root}/assets/**/*", recursive=True):
+              if os.path.isfile(filepath):
+                  url = filepath.replace(dist_root, "", 1)
+                  asset_urls.append(f'  "{url}"')
+
+          asset_list = ",\n".join(asset_urls)
+
+          with open(sw_path, "r") as f:
+              sw = f.read()
+
+          # به SHELL_URLS اضافه کن
+          sw = sw.replace(
+              '"/icons/favicon-16.png",\n];',
+              f'"/icons/favicon-16.png",\n{asset_list},\n];'
+          )
+
+          with open(sw_path, "w") as f:
+              f.write(sw)
+          print(f"SW updated with {len(asset_urls)} asset URLs")
+          PYEOF
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    name: Deploy
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
