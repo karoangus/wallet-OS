@@ -49,7 +49,7 @@ sw.js             Service worker: offline caching & update strategy
 offline.html      Offline fallback page
 manifest.json     PWA manifest
 scripts/serve.mjs Zero-dependency static dev server
-.github/          Pages deploy workflow
+docs/             Ready-to-copy GitHub Pages workflow
 ```
 
 ## Data, privacy and backups
@@ -85,8 +85,10 @@ abort the whole install.
 
 ## Deployment
 
-* **GitHub Pages** — run the *Deploy to GitHub Pages* workflow manually from the Actions tab
-  (Settings → Pages → Source: *GitHub Actions* on first use).
+* **GitHub Pages** — copy `docs/github-pages-workflow.yml` to `.github/workflows/pages.yml`, commit it,
+  then run the *Deploy to GitHub Pages* workflow from the Actions tab (Settings → Pages → Source:
+  *GitHub Actions* on first use). It ships as an example because adding files under
+  `.github/workflows/` needs the `workflows` scope, which the commit automation here doesn't hold.
 * **Any static host** (Netlify, Cloudflare Pages, Vercel) — upload the repository root as-is;
   no build command, no output directory.
 
