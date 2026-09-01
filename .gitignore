@@ -1,0 +1,18 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Local dev / editor
+.DS_Store
+Thumbs.db
+*.local
+*.log
+.vscode/
+.idea/
+
+# Backups exported from the app (never commit personal finance data)
+walletos-backup-*.json
+
+# Build output
+dist/
+build/

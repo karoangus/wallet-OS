@@ -1,0 +1,41 @@
+name: Deploy to GitHub Pages
+
+# Manual-only on purpose: this action would fail on every push until Pages is
+# enabled in Settings → Pages → Source: "GitHub Actions". Flip `workflow_dispatch`
+# to `push: branches: [main]` once Pages is configured.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/configure-pages@v5
+
+      - name: Upload static site
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+          # Keep wallet backups and dev tooling out of the deployed artefact.
+          exclude: |
+            **/.git/**
+            **/.github/**
+            **/node_modules/**
+            walletos-backup-*.json
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
