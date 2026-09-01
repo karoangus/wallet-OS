@@ -2,10 +2,13 @@
 <html dir="rtl" lang="fa">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<!-- Zoom is intentionally enabled (no maximum-scale / user-scalable=no): blocking pinch-zoom
+     is an accessibility regression, especially for a number-heavy finance app. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>WalletOS — کیف پول دیجیتال</title>
 <meta name="description" content="کیف پول دیجیتال آفلاین. مدیریت هزینه، درآمد، بودجه و اهداف مالی." />
 <meta name="theme-color" content="#080B14" />
+<meta name="color-scheme" content="dark" />
 <link rel="manifest" href="./manifest.json" />
 <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png" />
 <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
@@ -17,20 +20,252 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 <style>
-html,body{margin:0;padding:0;background:#080B14;}
+html,body{margin:0;padding:0;background:#080B14;color-scheme:dark;}
 #root{min-height:100vh;}
+/* Keyboard/AT focus was invisible in the bundled app; keep the brand blue. */
+:focus-visible{outline:2px solid #3E7BFA;outline-offset:2px;border-radius:8px;}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;}
+}
 </style>
 </head>
 <body>
 <div id="root"></div>
+<noscript>
+  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:#080B14;color:#EDF1FB;font-family:'Vazirmatn',system-ui,sans-serif;text-align:center">
+    <div>
+      <div style="font-size:17px;font-weight:800">جاوااسکریپت غیرفعال است</div>
+      <div style="margin-top:8px;font-size:13px;color:#8D96B8">برای استفاده از WalletOS لطفاً جاوااسکریپت مرورگر را فعال کنید.</div>
+    </div>
+  </div>
+</noscript>
 <script>
-if("serviceWorker"in navigator){
-  window.addEventListener("load",function(){
-    navigator.serviceWorker.register("./sw.js",{scope:"./"})
-      .then(function(r){console.log("[WOS] SW:",r.scope);})
-      .catch(function(e){console.warn("[WOS] SW failed:",e);});
+/* ==========================================================================
+ * WalletOS — boot shell (runs before the app bundle)
+ * --------------------------------------------------------------------------
+ * 1. Asks for persistent storage so IndexedDB isn't evicted under pressure.
+ * 2. Registers the service worker and surfaces a "new version" prompt.
+ * 3. Guards against the blank-screen failure mode: if the bundle throws (or
+ *    hangs) before it renders, the user gets an explanation and a way out —
+ *    reload, or wipe local storage and start clean. For a local-only finance
+ *    app this is the difference between "app is broken" and "app recovers".
+ * ========================================================================== */
+(function () {
+  'use strict';
+
+  var WOS = { version: '2.0.0', persistent: null, sw: null, reset: resetEverything };
+  window.WOS = WOS;
+
+  /* ---------------------------------------------------------------- storage */
+
+  if (navigator.storage && navigator.storage.persist) {
+    navigator.storage.persist().then(function (granted) {
+      WOS.persistent = granted;
+      console.info('[WOS] persistent storage:', granted ? 'granted' : 'denied');
+    }).catch(function () { /* unsupported / blocked — non fatal */ });
+  }
+
+  /* ------------------------------------------------------------ crash guard */
+
+  var overlay = null;
+
+  // Measured: the boot spinner renders 7 nodes, a healthy screen 25+.
+  // Cheap, dependency-free way to tell "rendered" from "stuck".
+  function appLooksRendered() {
+    var root = document.getElementById('root');
+    return !!root && root.querySelectorAll('*').length > 12;
+  }
+
+  function el(tag, styles) {
+    var node = document.createElement(tag);
+    if (styles) node.style.cssText = styles;
+    return node;
+  }
+
+  function showRecovery(detail) {
+    if (overlay) return;
+    overlay = el('div', 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:24px;background:#080B14;direction:rtl');
+    overlay.id = 'wos-recovery';
+
+    var card = el('div', 'width:100%;max-width:380px;background:#111629;border:1px solid rgba(148,163,207,0.22);border-radius:24px;padding:28px 24px;text-align:center;color:#EDF1FB;font-family:"Vazirmatn",system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif');
+
+    var title = el('div', 'font-size:17px;font-weight:800');
+    title.textContent = 'برنامه اجرا نشد';
+
+    var body = el('div', 'margin-top:8px;font-size:13px;line-height:1.9;color:#8D96B8');
+    body.textContent = 'مشکلی هنگام بارگذاری پیش آمد. داده‌های شما روی همین دستگاه باقی مانده است؛ ابتدا بارگذاری دوباره را امتحان کنید.';
+
+    var detailNode = el('div', 'margin-top:10px;font-size:11px;line-height:1.7;color:#5B6488;word-break:break-word');
+    detailNode.textContent = String(detail || '').slice(0, 300);
+
+    var row = el('div', 'display:flex;gap:10px;margin-top:22px');
+
+    var reload = el('button', 'flex:1;padding:12px 0;border:0;border-radius:14px;background:#3E7BFA;color:#0A0E1A;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer');
+    reload.type = 'button';
+    reload.textContent = 'بارگذاری دوباره';
+    reload.addEventListener('click', function () { location.reload(); });
+
+    var wipe = el('button', 'flex:1;padding:12px 0;border:1px solid rgba(251,113,133,0.45);border-radius:14px;background:transparent;color:#FB7185;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer');
+    wipe.type = 'button';
+    wipe.textContent = 'پاک‌سازی داده‌ها';
+    wipe.addEventListener('click', function () {
+      if (!confirm('همهٔ تراکنش‌ها، بودجه‌ها و اهداف حذف می‌شوند و برنامه دوباره راه‌اندازی می‌شود. ادامه می‌دهید؟')) return;
+      wipe.disabled = true;
+      wipe.textContent = 'در حال پاک‌سازی…';
+      resetEverything();
+    });
+
+    row.appendChild(reload);
+    row.appendChild(wipe);
+    card.appendChild(title);
+    card.appendChild(body);
+    if (detail) card.appendChild(detailNode);
+    card.appendChild(row);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+  }
+
+  function describe(error) {
+    if (!error) return 'خطای ناشناخته';
+    if (typeof error === 'string') return error;
+    return error.message || error.name || error.type || 'خطای ناشناخته';
+  }
+
+  window.addEventListener('error', function (event) {
+    if (!appLooksRendered()) showRecovery(describe(event.error || event.message));
   });
-}
+  window.addEventListener('unhandledrejection', function (event) {
+    if (!appLooksRendered()) showRecovery(describe(event.reason));
+  });
+
+  // Watchdog: a rejected IndexedDB open (corrupt DB, private-mode quirk, quota)
+  // used to leave the spinner spinning forever with no UI to recover from.
+  setTimeout(function () {
+    if (!appLooksRendered()) showRecovery('بارگذاری بیش از ۱۵ ثانیه طول کشید.');
+  }, 15000);
+
+  /* ------------------------------------------------------------- recovery */
+
+  function deleteDatabase(name) {
+    return new Promise(function (resolve) {
+      var request;
+      try {
+        request = indexedDB.deleteDatabase(name);
+      } catch (err) {
+        return resolve();
+      }
+      request.onsuccess = request.onerror = request.onblocked = function () { resolve(); };
+    });
+  }
+
+  async function resetEverything() {
+    try {
+      if (window.caches) {
+        var keys = await caches.keys();
+        await Promise.all(keys.map(function (key) { return caches.delete(key); }));
+      }
+    } catch (err) { /* ignore */ }
+
+    try {
+      if (indexedDB.databases) {
+        var dbs = await indexedDB.databases();
+        await Promise.all(dbs.map(function (db) { return db && db.name ? deleteDatabase(db.name) : null; }));
+      } else {
+        await deleteDatabase('walletos-db');
+      }
+    } catch (err) {
+      await deleteDatabase('walletos-db');
+    }
+
+    try {
+      if (navigator.serviceWorker) {
+        var registrations = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(registrations.map(function (reg) { return reg.unregister(); }));
+      }
+    } catch (err) { /* ignore */ }
+
+    location.href = './index.html?reset=' + Date.now();
+  }
+
+  /* --------------------------------------------------- service worker / UX */
+
+  function showUpdatePrompt(applyUpdate) {
+    if (document.getElementById('wos-update')) return;
+
+    var bar = el('div', 'position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:99998;display:flex;align-items:center;gap:10px;max-width:456px;margin:0 auto;padding:12px 14px;background:#111629;border:1px solid rgba(148,163,207,0.22);border-radius:16px;box-shadow:0 12px 30px rgba(0,0,0,0.45);direction:rtl;color:#EDF1FB;font-family:"Vazirmatn",system-ui,sans-serif');
+    bar.id = 'wos-update';
+
+    var text = el('div', 'flex:1;font-size:13px;font-weight:600');
+    text.textContent = 'نسخهٔ جدید WalletOS آماده است.';
+
+    var later = el('button', 'padding:7px 10px;border:0;background:transparent;color:#8D96B8;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer');
+    later.type = 'button';
+    later.textContent = 'بعداً';
+    later.addEventListener('click', function () { bar.remove(); });
+
+    var now = el('button', 'padding:8px 14px;border:0;border-radius:12px;background:#3E7BFA;color:#0A0E1A;font-family:inherit;font-size:13px;font-weight:800;cursor:pointer');
+    now.type = 'button';
+    now.textContent = 'به‌روزرسانی';
+    now.addEventListener('click', function () {
+      now.disabled = true;
+      now.textContent = '…';
+      applyUpdate();
+    });
+
+    bar.appendChild(text);
+    bar.appendChild(later);
+    bar.appendChild(now);
+    document.body.appendChild(bar);
+  }
+
+  if ('serviceWorker' in navigator) {
+    var refreshing = false;
+    // On a first visit the page starts uncontrolled, so the very first
+    // controllerchange is just the new worker taking over — not an update.
+    // Reloading there would double-load the app for every new user.
+    var hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (!hadController) {
+        hadController = true;
+        return;
+      }
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    });
+
+    window.addEventListener('load', function () {
+      navigator.serviceWorker
+        .register('./sw.js', { scope: './', updateViaCache: 'none' })
+        .then(function (registration) {
+          WOS.sw = registration;
+
+          if (registration.waiting && navigator.serviceWorker.controller) {
+            showUpdatePrompt(function () { registration.waiting.postMessage({ type: 'SKIP_WAITING' }); });
+          }
+
+          registration.addEventListener('updatefound', function () {
+            var worker = registration.installing;
+            if (!worker) return;
+            worker.addEventListener('statechange', function () {
+              if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+                showUpdatePrompt(function () { worker.postMessage({ type: 'SKIP_WAITING' }); });
+              }
+            });
+          });
+
+          // Keep installed PWAs from drifting months behind.
+          setInterval(function () { registration.update().catch(function () {}); }, 30 * 60 * 1000);
+          document.addEventListener('visibilitychange', function () {
+            if (!document.hidden) registration.update().catch(function () {});
+          });
+        })
+        .catch(function (err) {
+          console.warn('[WOS] service worker registration failed:', err);
+        });
+    });
+  }
+})();
 </script>
 <script>(()=>{var jy=Object.create;var ls=Object.defineProperty;var Xy=Object.getOwnPropertyDescriptor;var Qy=Object.getOwnPropertyNames;var Ly=Object.getPrototypeOf,wy=Object.prototype.hasOwnProperty;var Sl=(t,l)=>()=>(l||t((l={exports:{}}).exports,l),l.exports);var Zy=(t,l,e,a)=>{if(l&&typeof l=="object"||typeof l=="function")for(let n of Qy(l))!wy.call(t,n)&&n!==e&&ls(t,n,{get:()=>l[n],enumerable:!(a=Xy(l,n))||a.enumerable});return t};var Jt=(t,l,e)=>(e=t!=null?jy(Ly(t)):{},Zy(l||!t||!t.__esModule?ls(e,"default",{value:t,enumerable:!0}):e,t));var rs=Sl(G=>{"use strict";var tc=Symbol.for("react.transitional.element"),Vy=Symbol.for("react.portal"),Ky=Symbol.for("react.fragment"),Jy=Symbol.for("react.strict_mode"),ky=Symbol.for("react.profiler"),Fy=Symbol.for("react.consumer"),Wy=Symbol.for("react.context"),$y=Symbol.for("react.forward_ref"),Iy=Symbol.for("react.suspense"),Py=Symbol.for("react.memo"),is=Symbol.for("react.lazy"),tm=Symbol.for("react.activity"),es=Symbol.iterator;function lm(t){return t===null||typeof t!="object"?null:(t=es&&t[es]||t["@@iterator"],typeof t=="function"?t:null)}var cs={isMounted:function(){return!1},enqueueForceUpdate:function(){},enqueueReplaceState:function(){},enqueueSetState:function(){}},os=Object.assign,fs={};function $e(t,l,e){this.props=t,this.context=l,this.refs=fs,this.updater=e||cs}$e.prototype.isReactComponent={};$e.prototype.setState=function(t,l){if(typeof t!="object"&&typeof t!="function"&&t!=null)throw Error("takes an object of state variables to update or a function which returns an object of state variables.");this.updater.enqueueSetState(this,t,l,"setState")};$e.prototype.forceUpdate=function(t){this.updater.enqueueForceUpdate(this,t,"forceUpdate")};function ss(){}ss.prototype=$e.prototype;function lc(t,l,e){this.props=t,this.context=l,this.refs=fs,this.updater=e||cs}var ec=lc.prototype=new ss;ec.constructor=lc;os(ec,$e.prototype);ec.isPureReactComponent=!0;var as=Array.isArray;function Pi(){}var et={H:null,A:null,T:null,S:null},ds=Object.prototype.hasOwnProperty;function ac(t,l,e){var a=e.ref;return{$$typeof:tc,type:t,key:l,ref:a!==void 0?a:null,props:e}}function em(t,l){return ac(t.type,l,t.props)}function nc(t){return typeof t=="object"&&t!==null&&t.$$typeof===tc}function am(t){var l={"=":"=0",":":"=2"};return"$"+t.replace(/[=:]/g,function(e){return l[e]})}var ns=/\/+/g;function Ii(t,l){return typeof t=="object"&&t!==null&&t.key!=null?am(""+t.key):l.toString(36)}function nm(t){switch(t.status){case"fulfilled":return t.value;case"rejected":throw t.reason;default:switch(typeof t.status=="string"?t.then(Pi,Pi):(t.status="pending",t.then(function(l){t.status==="pending"&&(t.status="fulfilled",t.value=l)},function(l){t.status==="pending"&&(t.status="rejected",t.reason=l)})),t.status){case"fulfilled":return t.value;case"rejected":throw t.reason}}throw t}function We(t,l,e,a,n){var u=typeof t;(u==="undefined"||u==="boolean")&&(t=null);var i=!1;if(t===null)i=!0;else switch(u){case"bigint":case"string":case"number":i=!0;break;case"object":switch(t.$$typeof){case tc:case Vy:i=!0;break;case is:return i=t._init,We(i(t._payload),l,e,a,n)}}if(i)return n=n(t),i=a===""?"."+Ii(t,0):a,as(n)?(e="",i!=null&&(e=i.replace(ns,"$&/")+"/"),We(n,l,e,"",function(r){return r})):n!=null&&(nc(n)&&(n=em(n,e+(n.key==null||t&&t.key===n.key?"":(""+n.key).replace(ns,"$&/")+"/")+i)),l.push(n)),1;i=0;var c=a===""?".":a+":";if(as(t))for(var f=0;f<t.length;f++)a=t[f],u=c+Ii(a,f),i+=We(a,l,e,u,n);else if(f=lm(t),typeof f=="function")for(t=f.call(t),f=0;!(a=t.next()).done;)a=a.value,u=c+Ii(a,f++),i+=We(a,l,e,u,n);else if(u==="object"){if(typeof t.then=="function")return We(nm(t),l,e,a,n);throw l=String(t),Error("Objects are not valid as a React child (found: "+(l==="[object Object]"?"object with keys {"+Object.keys(t).join(", ")+"}":l)+"). If you meant to render a collection of children, use an array instead.")}return i}function fu(t,l,e){if(t==null)return t;var a=[],n=0;return We(t,a,"","",function(u){return l.call(e,u,n++)}),a}function um(t){if(t._status===-1){var l=t._result;l=l(),l.then(function(e){(t._status===0||t._status===-1)&&(t._status=1,t._result=e)},function(e){(t._status===0||t._status===-1)&&(t._status=2,t._result=e)}),t._status===-1&&(t._status=0,t._result=l)}if(t._status===1)return t._result.default;throw t._result}var us=typeof reportError=="function"?reportError:function(t){if(typeof window=="object"&&typeof window.ErrorEvent=="function"){var l=new window.ErrorEvent("error",{bubbles:!0,cancelable:!0,message:typeof t=="object"&&t!==null&&typeof t.message=="string"?String(t.message):String(t),error:t});if(!window.dispatchEvent(l))return}else if(typeof process=="object"&&typeof process.emit=="function"){process.emit("uncaughtException",t);return}console.error(t)},im={map:fu,forEach:function(t,l,e){fu(t,function(){l.apply(this,arguments)},e)},count:function(t){var l=0;return fu(t,function(){l++}),l},toArray:function(t){return fu(t,function(l){return l})||[]},only:function(t){if(!nc(t))throw Error("React.Children.only expected to receive a single React element child.");return t}};G.Activity=tm;G.Children=im;G.Component=$e;G.Fragment=Ky;G.Profiler=ky;G.PureComponent=lc;G.StrictMode=Jy;G.Suspense=Iy;G.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE=et;G.__COMPILER_RUNTIME={__proto__:null,c:function(t){return et.H.useMemoCache(t)}};G.cache=function(t){return function(){return t.apply(null,arguments)}};G.cacheSignal=function(){return null};G.cloneElement=function(t,l,e){if(t==null)throw Error("The argument must be a React element, but you passed "+t+".");var a=os({},t.props),n=t.key;if(l!=null)for(u in l.key!==void 0&&(n=""+l.key),l)!ds.call(l,u)||u==="key"||u==="__self"||u==="__source"||u==="ref"&&l.ref===void 0||(a[u]=l[u]);var u=arguments.length-2;if(u===1)a.children=e;else if(1<u){for(var i=Array(u),c=0;c<u;c++)i[c]=arguments[c+2];a.children=i}return ac(t.type,n,a)};G.createContext=function(t){return t={$$typeof:Wy,_currentValue:t,_currentValue2:t,_threadCount:0,Provider:null,Consumer:null},t.Provider=t,t.Consumer={$$typeof:Fy,_context:t},t};G.createElement=function(t,l,e){var a,n={},u=null;if(l!=null)for(a in l.key!==void 0&&(u=""+l.key),l)ds.call(l,a)&&a!=="key"&&a!=="__self"&&a!=="__source"&&(n[a]=l[a]);var i=arguments.length-2;if(i===1)n.children=e;else if(1<i){for(var c=Array(i),f=0;f<i;f++)c[f]=arguments[f+2];n.children=c}if(t&&t.defaultProps)for(a in i=t.defaultProps,i)n[a]===void 0&&(n[a]=i[a]);return ac(t,u,n)};G.createRef=function(){return{current:null}};G.forwardRef=function(t){return{$$typeof:$y,render:t}};G.isValidElement=nc;G.lazy=function(t){return{$$typeof:is,_payload:{_status:-1,_result:t},_init:um}};G.memo=function(t,l){return{$$typeof:Py,type:t,compare:l===void 0?null:l}};G.startTransition=function(t){var l=et.T,e={};et.T=e;try{var a=t(),n=et.S;n!==null&&n(e,a),typeof a=="object"&&a!==null&&typeof a.then=="function"&&a.then(Pi,us)}catch(u){us(u)}finally{l!==null&&e.types!==null&&(l.types=e.types),et.T=l}};G.unstable_useCacheRefresh=function(){return et.H.useCacheRefresh()};G.use=function(t){return et.H.use(t)};G.useActionState=function(t,l,e){return et.H.useActionState(t,l,e)};G.useCallback=function(t,l){return et.H.useCallback(t,l)};G.useContext=function(t){return et.H.useContext(t)};G.useDebugValue=function(){};G.useDeferredValue=function(t,l){return et.H.useDeferredValue(t,l)};G.useEffect=function(t,l){return et.H.useEffect(t,l)};G.useEffectEvent=function(t){return et.H.useEffectEvent(t)};G.useId=function(){return et.H.useId()};G.useImperativeHandle=function(t,l,e){return et.H.useImperativeHandle(t,l,e)};G.useInsertionEffect=function(t,l){return et.H.useInsertionEffect(t,l)};G.useLayoutEffect=function(t,l){return et.H.useLayoutEffect(t,l)};G.useMemo=function(t,l){return et.H.useMemo(t,l)};G.useOptimistic=function(t,l){return et.H.useOptimistic(t,l)};G.useReducer=function(t,l,e){return et.H.useReducer(t,l,e)};G.useRef=function(t){return et.H.useRef(t)};G.useState=function(t){return et.H.useState(t)};G.useSyncExternalStore=function(t,l,e){return et.H.useSyncExternalStore(t,l,e)};G.useTransition=function(){return et.H.useTransition()};G.version="19.2.5"});var Ee=Sl((bh,ys)=>{"use strict";ys.exports=rs()});var Ts=Sl(ot=>{"use strict";function oc(t,l){var e=t.length;t.push(l);t:for(;0<e;){var a=e-1>>>1,n=t[a];if(0<su(n,l))t[a]=l,t[e]=n,e=a;else break t}}function xl(t){return t.length===0?null:t[0]}function ru(t){if(t.length===0)return null;var l=t[0],e=t.pop();if(e!==l){t[0]=e;t:for(var a=0,n=t.length,u=n>>>1;a<u;){var i=2*(a+1)-1,c=t[i],f=i+1,r=t[f];if(0>su(c,e))f<n&&0>su(r,c)?(t[a]=r,t[f]=e,a=f):(t[a]=c,t[i]=e,a=i);else if(f<n&&0>su(r,e))t[a]=r,t[f]=e,a=f;else break t}}return l}function su(t,l){var e=t.sortIndex-l.sortIndex;return e!==0?e:t.id-l.id}ot.unstable_now=void 0;typeof performance=="object"&&typeof performance.now=="function"?(ms=performance,ot.unstable_now=function(){return ms.now()}):(uc=Date,gs=uc.now(),ot.unstable_now=function(){return uc.now()-gs});var ms,uc,gs,Ol=[],Wl=[],cm=1,ul=null,Nt=3,fc=!1,Pa=!1,tn=!1,sc=!1,ps=typeof setTimeout=="function"?setTimeout:null,bs=typeof clearTimeout=="function"?clearTimeout:null,vs=typeof setImmediate<"u"?setImmediate:null;function du(t){for(var l=xl(Wl);l!==null;){if(l.callback===null)ru(Wl);else if(l.startTime<=t)ru(Wl),l.sortIndex=l.expirationTime,oc(Ol,l);else break;l=xl(Wl)}}function dc(t){if(tn=!1,du(t),!Pa)if(xl(Ol)!==null)Pa=!0,Pe||(Pe=!0,Ie());else{var l=xl(Wl);l!==null&&rc(dc,l.startTime-t)}}var Pe=!1,ln=-1,Ss=5,xs=-1;function zs(){return sc?!0:!(ot.unstable_now()-xs<Ss)}function ic(){if(sc=!1,Pe){var t=ot.unstable_now();xs=t;var l=!0;try{t:{Pa=!1,tn&&(tn=!1,bs(ln),ln=-1),fc=!0;var e=Nt;try{l:{for(du(t),ul=xl(Ol);ul!==null&&!(ul.expirationTime>t&&zs());){var a=ul.callback;if(typeof a=="function"){ul.callback=null,Nt=ul.priorityLevel;var n=a(ul.expirationTime<=t);if(t=ot.unstable_now(),typeof n=="function"){ul.callback=n,du(t),l=!0;break l}ul===xl(Ol)&&ru(Ol),du(t)}else ru(Ol);ul=xl(Ol)}if(ul!==null)l=!0;else{var u=xl(Wl);u!==null&&rc(dc,u.startTime-t),l=!1}}break t}finally{ul=null,Nt=e,fc=!1}l=void 0}}finally{l?Ie():Pe=!1}}}var Ie;typeof vs=="function"?Ie=function(){vs(ic)}:typeof MessageChannel<"u"?(cc=new MessageChannel,hs=cc.port2,cc.port1.onmessage=ic,Ie=function(){hs.postMessage(null)}):Ie=function(){ps(ic,0)};var cc,hs;function rc(t,l){ln=ps(function(){t(ot.unstable_now())},l)}ot.unstable_IdlePriority=5;ot.unstable_ImmediatePriority=1;ot.unstable_LowPriority=4;ot.unstable_NormalPriority=3;ot.unstable_Profiling=null;ot.unstable_UserBlockingPriority=2;ot.unstable_cancelCallback=function(t){t.callback=null};ot.unstable_forceFrameRate=function(t){0>t||125<t?console.error("forceFrameRate takes a positive int between 0 and 125, forcing frame rates higher than 125 fps is not supported"):Ss=0<t?Math.floor(1e3/t):5};ot.unstable_getCurrentPriorityLevel=function(){return Nt};ot.unstable_next=function(t){switch(Nt){case 1:case 2:case 3:var l=3;break;default:l=Nt}var e=Nt;Nt=l;try{return t()}finally{Nt=e}};ot.unstable_requestPaint=function(){sc=!0};ot.unstable_runWithPriority=function(t,l){switch(t){case 1:case 2:case 3:case 4:case 5:break;default:t=3}var e=Nt;Nt=t;try{return l()}finally{Nt=e}};ot.unstable_scheduleCallback=function(t,l,e){var a=ot.unstable_now();switch(typeof e=="object"&&e!==null?(e=e.delay,e=typeof e=="number"&&0<e?a+e:a):e=a,t){case 1:var n=-1;break;case 2:n=250;break;case 5:n=1073741823;break;case 4:n=1e4;break;default:n=5e3}return n=e+n,t={id:cm++,callback:l,priorityLevel:t,startTime:e,expirationTime:n,sortIndex:-1},e>a?(t.sortIndex=e,oc(Wl,t),xl(Ol)===null&&t===xl(Wl)&&(tn?(bs(ln),ln=-1):tn=!0,rc(dc,e-a))):(t.sortIndex=n,oc(Ol,t),Pa||fc||(Pa=!0,Pe||(Pe=!0,Ie()))),t};ot.unstable_shouldYield=zs;ot.unstable_wrapCallback=function(t){var l=Nt;return function(){var e=Nt;Nt=l;try{return t.apply(this,arguments)}finally{Nt=e}}}});var Es=Sl((xh,As)=>{"use strict";As.exports=Ts()});var Cs=Sl(Yt=>{"use strict";var om=Ee();function Ms(t){var l="https://react.dev/errors/"+t;if(1<arguments.length){l+="?args[]="+encodeURIComponent(arguments[1]);for(var e=2;e<arguments.length;e++)l+="&args[]="+encodeURIComponent(arguments[e])}return"Minified React error #"+t+"; visit "+l+" for the full message or use the non-minified dev environment for full errors and additional helpful warnings."}function $l(){}var Ht={d:{f:$l,r:function(){throw Error(Ms(522))},D:$l,C:$l,L:$l,m:$l,X:$l,S:$l,M:$l},p:0,findDOMNode:null},fm=Symbol.for("react.portal");function sm(t,l,e){var a=3<arguments.length&&arguments[3]!==void 0?arguments[3]:null;return{$$typeof:fm,key:a==null?null:""+a,children:t,containerInfo:l,implementation:e}}var en=om.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE;function yu(t,l){if(t==="font")return"";if(typeof l=="string")return l==="use-credentials"?l:""}Yt.__DOM_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE=Ht;Yt.createPortal=function(t,l){var e=2<arguments.length&&arguments[2]!==void 0?arguments[2]:null;if(!l||l.nodeType!==1&&l.nodeType!==9&&l.nodeType!==11)throw Error(Ms(299));return sm(t,l,null,e)};Yt.flushSync=function(t){var l=en.T,e=Ht.p;try{if(en.T=null,Ht.p=2,t)return t()}finally{en.T=l,Ht.p=e,Ht.d.f()}};Yt.preconnect=function(t,l){typeof t=="string"&&(l?(l=l.crossOrigin,l=typeof l=="string"?l==="use-credentials"?l:"":void 0):l=null,Ht.d.C(t,l))};Yt.prefetchDNS=function(t){typeof t=="string"&&Ht.d.D(t)};Yt.preinit=function(t,l){if(typeof t=="string"&&l&&typeof l.as=="string"){var e=l.as,a=yu(e,l.crossOrigin),n=typeof l.integrity=="string"?l.integrity:void 0,u=typeof l.fetchPriority=="string"?l.fetchPriority:void 0;e==="style"?Ht.d.S(t,typeof l.precedence=="string"?l.precedence:void 0,{crossOrigin:a,integrity:n,fetchPriority:u}):e==="script"&&Ht.d.X(t,{crossOrigin:a,integrity:n,fetchPriority:u,nonce:typeof l.nonce=="string"?l.nonce:void 0})}};Yt.preinitModule=function(t,l){if(typeof t=="string")if(typeof l=="object"&&l!==null){if(l.as==null||l.as==="script"){var e=yu(l.as,l.crossOrigin);Ht.d.M(t,{crossOrigin:e,integrity:typeof l.integrity=="string"?l.integrity:void 0,nonce:typeof l.nonce=="string"?l.nonce:void 0})}}else l==null&&Ht.d.M(t)};Yt.preload=function(t,l){if(typeof t=="string"&&typeof l=="object"&&l!==null&&typeof l.as=="string"){var e=l.as,a=yu(e,l.crossOrigin);Ht.d.L(t,e,{crossOrigin:a,integrity:typeof l.integrity=="string"?l.integrity:void 0,nonce:typeof l.nonce=="string"?l.nonce:void 0,type:typeof l.type=="string"?l.type:void 0,fetchPriority:typeof l.fetchPriority=="string"?l.fetchPriority:void 0,referrerPolicy:typeof l.referrerPolicy=="string"?l.referrerPolicy:void 0,imageSrcSet:typeof l.imageSrcSet=="string"?l.imageSrcSet:void 0,imageSizes:typeof l.imageSizes=="string"?l.imageSizes:void 0,media:typeof l.media=="string"?l.media:void 0})}};Yt.preloadModule=function(t,l){if(typeof t=="string")if(l){var e=yu(l.as,l.crossOrigin);Ht.d.m(t,{as:typeof l.as=="string"&&l.as!=="script"?l.as:void 0,crossOrigin:e,integrity:typeof l.integrity=="string"?l.integrity:void 0})}else Ht.d.m(t)};Yt.requestFormReset=function(t){Ht.d.r(t)};Yt.unstable_batchedUpdates=function(t,l){return t(l)};Yt.useFormState=function(t,l,e){return en.H.useFormState(t,l,e)};Yt.useFormStatus=function(){return en.H.useHostTransitionStatus()};Yt.version="19.2.5"});var _s=Sl((Th,Os)=>{"use strict";function Ds(){if(!(typeof __REACT_DEVTOOLS_GLOBAL_HOOK__>"u"||typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.checkDCE!="function"))try{__REACT_DEVTOOLS_GLOBAL_HOOK__.checkDCE(Ds)}catch(t){console.error(t)}}Ds(),Os.exports=Cs()});var L0=Sl(qi=>{"use strict";var xt=Es(),e1=Ee(),dm=_s();function z(t){var l="https://react.dev/errors/"+t;if(1<arguments.length){l+="?args[]="+encodeURIComponent(arguments[1]);for(var e=2;e<arguments.length;e++)l+="&args[]="+encodeURIComponent(arguments[e])}return"Minified React error #"+t+"; visit "+l+" for the full message or use the non-minified dev environment for full errors and additional helpful warnings."}function a1(t){return!(!t||t.nodeType!==1&&t.nodeType!==9&&t.nodeType!==11)}function wn(t){var l=t,e=t;if(t.alternate)for(;l.return;)l=l.return;else{t=l;do l=t,(l.flags&4098)!==0&&(e=l.return),t=l.return;while(t)}return l.tag===3?e:null}function n1(t){if(t.tag===13){var l=t.memoizedState;if(l===null&&(t=t.alternate,t!==null&&(l=t.memoizedState)),l!==null)return l.dehydrated}return null}function u1(t){if(t.tag===31){var l=t.memoizedState;if(l===null&&(t=t.alternate,t!==null&&(l=t.memoizedState)),l!==null)return l.dehydrated}return null}function Us(t){if(wn(t)!==t)throw Error(z(188))}function rm(t){var l=t.alternate;if(!l){if(l=wn(t),l===null)throw Error(z(188));return l!==t?null:t}for(var e=t,a=l;;){var n=e.return;if(n===null)break;var u=n.alternate;if(u===null){if(a=n.return,a!==null){e=a;continue}break}if(n.child===u.child){for(u=n.child;u;){if(u===e)return Us(n),t;if(u===a)return Us(n),l;u=u.sibling}throw Error(z(188))}if(e.return!==a.return)e=n,a=u;else{for(var i=!1,c=n.child;c;){if(c===e){i=!0,e=n,a=u;break}if(c===a){i=!0,a=n,e=u;break}c=c.sibling}if(!i){for(c=u.child;c;){if(c===e){i=!0,e=u,a=n;break}if(c===a){i=!0,a=u,e=n;break}c=c.sibling}if(!i)throw Error(z(189))}}if(e.alternate!==a)throw Error(z(190))}if(e.tag!==3)throw Error(z(188));return e.stateNode.current===e?t:l}function i1(t){var l=t.tag;if(l===5||l===26||l===27||l===6)return t;for(t=t.child;t!==null;){if(l=i1(t),l!==null)return l;t=t.sibling}return null}var ut=Object.assign,ym=Symbol.for("react.element"),mu=Symbol.for("react.transitional.element"),dn=Symbol.for("react.portal"),ua=Symbol.for("react.fragment"),c1=Symbol.for("react.strict_mode"),Kc=Symbol.for("react.profiler"),o1=Symbol.for("react.consumer"),Gl=Symbol.for("react.context"),Lo=Symbol.for("react.forward_ref"),Jc=Symbol.for("react.suspense"),kc=Symbol.for("react.suspense_list"),wo=Symbol.for("react.memo"),Il=Symbol.for("react.lazy"),Fc=Symbol.for("react.activity"),mm=Symbol.for("react.memo_cache_sentinel"),Bs=Symbol.iterator;function an(t){return t===null||typeof t!="object"?null:(t=Bs&&t[Bs]||t["@@iterator"],typeof t=="function"?t:null)}var gm=Symbol.for("react.client.reference");function Wc(t){if(t==null)return null;if(typeof t=="function")return t.$$typeof===gm?null:t.displayName||t.name||null;if(typeof t=="string")return t;switch(t){case ua:return"Fragment";case Kc:return"Profiler";case c1:return"StrictMode";case Jc:return"Suspense";case kc:return"SuspenseList";case Fc:return"Activity"}if(typeof t=="object")switch(t.$$typeof){case dn:return"Portal";case Gl:return t.displayName||"Context";case o1:return(t._context.displayName||"Context")+".Consumer";case Lo:var l=t.render;return t=t.displayName,t||(t=l.displayName||l.name||"",t=t!==""?"ForwardRef("+t+")":"ForwardRef"),t;case wo:return l=t.displayName||null,l!==null?l:Wc(t.type)||"Memo";case Il:l=t._payload,t=t._init;try{return Wc(t(l))}catch{}}return null}var rn=Array.isArray,Y=e1.__CLIENT_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE,K=dm.__DOM_INTERNALS_DO_NOT_USE_OR_WARN_USERS_THEY_CANNOT_UPGRADE,Ue={pending:!1,data:null,method:null,action:null},$c=[],ia=-1;function Ml(t){return{current:t}}function Et(t){0>ia||(t.current=$c[ia],$c[ia]=null,ia--)}function tt(t,l){ia++,$c[ia]=t.current,t.current=l}var El=Ml(null),On=Ml(null),fe=Ml(null),Ju=Ml(null);function ku(t,l){switch(tt(fe,l),tt(On,t),tt(El,null),l.nodeType){case 9:case 11:t=(t=l.documentElement)&&(t=t.namespaceURI)?jd(t):0;break;default:if(t=l.tagName,l=l.namespaceURI)l=jd(l),t=D0(l,t);else switch(t){case"svg":t=1;break;case"math":t=2;break;default:t=0}}Et(El),tt(El,t)}function Aa(){Et(El),Et(On),Et(fe)}function Ic(t){t.memoizedState!==null&&tt(Ju,t);var l=El.current,e=D0(l,t.type);l!==e&&(tt(On,t),tt(El,e))}function Fu(t){On.current===t&&(Et(El),Et(On)),Ju.current===t&&(Et(Ju),Xn._currentValue=Ue)}var yc,Ns;function Ce(t){if(yc===void 0)try{throw Error()}catch(e){var l=e.stack.trim().match(/\n( *(at )?)/);yc=l&&l[1]||"",Ns=-1<e.stack.indexOf(`
     at`)?" (<anonymous>)":-1<e.stack.indexOf("@")?"@unknown:0:0":""}return`
