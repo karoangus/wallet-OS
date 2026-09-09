@@ -20,3 +20,7 @@ build/
 # Mockup generator cache/output (gallery PNGs live in docs/screenshots/)
 scripts/mockups/.cache/
 scripts/mockups/out/
+
+# Python cache
+__pycache__/
+*.pyc
