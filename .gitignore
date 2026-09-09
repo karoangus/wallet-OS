@@ -16,3 +16,7 @@ walletos-backup-*.json
 # Build output
 dist/
 build/
+
+# Mockup generator cache/output (gallery PNGs live in docs/screenshots/)
+scripts/mockups/.cache/
+scripts/mockups/out/
