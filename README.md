@@ -3,7 +3,6 @@
 <img src="docs/screenshots/hero.png" alt="WalletOS — کیف پول دیجیتال" width="100%" />
 
 [![version](https://img.shields.io/badge/version-2.0.0-blue)](package.json)
-[![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![PWA](https://img.shields.io/badge/PWA-ready-purple)](manifest.json)
 ![offline](https://img.shields.io/badge/offline-100%25-success)
 [![dependencies](https://img.shields.io/badge/dependencies-zero-orange)](package.json)
@@ -260,14 +259,6 @@ node scripts/mockups/render.js && cp scripts/mockups/out/*.png docs/screenshots/
 
 </div>
 
-<div dir="rtl">
-
-## 📄 لایسنس
-
-[MIT](LICENSE) — ساخته‌شده با ☕ برای مدیریت پول، بدون اینکه پولت را به کسی نشان بدهی.
-
-</div>
-
 ---
 
 <details>
@@ -309,10 +300,6 @@ Single-file React app (`index.html`, no build) + IndexedDB (`walletos-db`:
 worker (network-first navigations, SWR assets, cache-first fonts) + PWA
 manifest. See the Persian sections above for the data model, SW strategy and
 deployment (GitHub Pages workflow example included).
-
-## License
-
-[MIT](LICENSE)
 
 </div>
 
