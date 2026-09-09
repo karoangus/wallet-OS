@@ -72,7 +72,7 @@ def build(m):
         s += rect(px - w, py, w, 46, f"{col}18", rx=23, stroke=f"{col}55", sw=1.5)
         s += txt(px - w / 2, py + 23, label, 16.5, col, 800, "middle", baseline="central")
         px -= w + 12
-    s += txt(R, 540, "v2.0.0 · MIT", 15, Y["textFaint"], 400, "end")
+    s += txt(R, 540, "v2.0.0", 15, Y["textFaint"], 400, "end")
     s += "</svg>"
     return s
 

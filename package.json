@@ -9,7 +9,6 @@
     "screenshots": "node scripts/screenshots.mjs"
   },
   "keywords": ["pwa", "wallet", "finance", "offline", "persian"],
-  "license": "MIT",
   "engines": {
     "node": ">=18"
   }
