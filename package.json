@@ -5,7 +5,8 @@
   "description": "WalletOS — offline-first Persian digital wallet (expenses, income, budgets, goals). Zero-build static PWA.",
   "scripts": {
     "dev": "node scripts/serve.mjs",
-    "start": "node scripts/serve.mjs"
+    "start": "node scripts/serve.mjs",
+    "screenshots": "node scripts/screenshots.mjs"
   },
   "keywords": ["pwa", "wallet", "finance", "offline", "persian"],
   "license": "MIT",
