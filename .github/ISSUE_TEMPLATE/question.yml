@@ -1,0 +1,60 @@
+name: "❓ Question / Help | سؤال و راهنمایی"
+description: "Stuck using the app? Ask here. | در استفاده از اپ گیر کرده‌ای؟ اینجا بپرس."
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        No worries — ask away! 🙋 Describe what you're trying to do below, in English or Persian.
+        اشکالی ندارد — بپرس! 🙋 پایین بنویس که می‌خواهی چه کار کنی؛ فارسی یا انگلیسی.
+        > 🔒 **Privacy:** please don't share real financial data or your full backup file — example numbers are enough.
+        > 🔒 **حریم خصوصی:** لطفاً اطلاعات مالی واقعی یا فایل بکاپ را نفرست — اعداد نمونه کافی است.
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: "What are you trying to do? | می‌خواهی چه کار کنی؟"
+      description: "Tell us your goal — e.g. install the app, record a transaction, set a budget, restore a backup..."
+      placeholder: |
+        Example: I want to move my data to a new phone using a backup file.
+        مثال: می‌خواهم با فایل بکاپ اطلاعاتم را به گوشی جدید منتقل کنم.
+    validations:
+      required: true
+
+  - type: textarea
+    id: stuck
+    attributes:
+      label: "Where are you stuck? | کجا گیر کرده‌ای؟"
+      description: "What don't you understand, or what isn't working as you expected?"
+      placeholder: |
+        Example: I made a backup from Settings, but I can't find where to restore it on the new phone.
+        مثال: از تنظیمات بکاپ گرفتم ولی در گوشی جدید جایی برای بازیابی پیدا نمی‌کنم.
+    validations:
+      required: true
+
+  - type: textarea
+    id: tried
+    attributes:
+      label: "What have you tried so far? | تا حالا چه کارهایی کرده‌ای؟"
+      description: "Optional — so we don't suggest things you've already tried."
+      placeholder: "Example: I re-opened the app and checked the Settings page. / مثال: اپ را دوباره باز کردم و صفحه تنظیمات را دیدم."
+    validations:
+      required: false
+
+  - type: input
+    id: setup
+    attributes:
+      label: "Your setup (optional) | مشخصات دستگاه"
+      description: "Device + browser helps us answer accurately — e.g. iPhone + Safari, Android + Chrome, Windows + Edge."
+      placeholder: "Example: Android + Chrome / مثال: اندروید + کروم"
+    validations:
+      required: false
+
+  - type: upload
+    id: screenshots
+    attributes:
+      label: "Screenshots (optional) | اسکرین‌شات"
+      description: "If a picture shows the problem better, drop it here. Please hide personal amounts first!"
+    validations:
+      required: false

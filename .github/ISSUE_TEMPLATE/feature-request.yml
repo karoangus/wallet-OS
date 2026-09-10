@@ -1,0 +1,79 @@
+name: "✨ Feature request | پیشنهاد قابلیت"
+description: "Suggest an idea for WalletOS. | ایده‌ات را برای بهتر شدن اپ بگو."
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for thinking about how to make WalletOS better! 💡 Describe your idea below — in English or Persian, whichever is easier.
+        ممنون که به بهتر شدن والت‌او‌اس فکر می‌کنی! 💡 ایده‌ات را پایین بنویس — فارسی یا انگلیسی، هرکدام راحت‌تری.
+
+  - type: textarea
+    id: feature
+    attributes:
+      label: "What feature would you like? | چه قابلیتی می‌خواهی؟"
+      description: "Describe the feature in a few sentences."
+      placeholder: |
+        Example: I'd like a way to see my total spending per tag for the current month.
+        مثال: می‌خواهم جمع هزینه‌های هر برچسب در ماه جاری را ببینم.
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: "What problem would it solve? | چه مشکلی را حل می‌کند؟"
+      description: "Why do you need this? What are you trying to achieve?"
+      placeholder: |
+        Example: I tag transactions with project names and currently I have to add them up by hand.
+        مثال: تراکنش‌ها را با نام پروژه برچسب می‌زنم و الان باید دستی جمعشان بزنم.
+    validations:
+      required: true
+
+  - type: textarea
+    id: how
+    attributes:
+      label: "How do you imagine it working? | به نظرت چطور کار کند؟"
+      description: "Optional — but any sketch of the idea helps (which page, what button, what result...)."
+      placeholder: |
+        Example: A small total row at the bottom of the filtered transaction list.
+        مثال: یک سطر جمع در پایین لیست تراکنش‌های فیلترشده.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: "Which part of the app is this about? | مربوط به کدام بخش است؟"
+      options:
+        - "🧾 Transactions | تراکنش‌ها"
+        - "💰 Balances & wallets | موجودی و کیف پول‌ها"
+        - "📊 Budgets | بودجه‌ها"
+        - "🎯 Savings goals | اهداف پس‌انداز"
+        - "📈 Reports & insights | گزارش‌ها"
+        - "🏷️ Categories & tags | دسته‌بندی‌ها و برچسب‌ها"
+        - "📦 Backup / restore | بکاپ و بازیابی"
+        - "📴 Offline mode / installing the app (PWA) | حالت آفلاین و نصب"
+        - "🌙 Display, language, dates or numbers | نمایش، زبان، تاریخ و اعداد"
+        - "🆕 Something completely new | یک چیز کاملاً جدید"
+        - "Something else | چیز دیگری"
+    validations:
+      required: false
+
+  - type: upload
+    id: mockups
+    attributes:
+      label: "Examples or mockups | مثال یا طرح"
+      description: "Optional — a sketch, screenshot, or example from another app that shows what you mean."
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: "Anything else? | چیز دیگری هست؟"
+      description: "Any extra context, alternatives you considered, etc."
+      placeholder: "Anything else you'd like to add. / اگر نکته دیگری هست بنویس."
+    validations:
+      required: false

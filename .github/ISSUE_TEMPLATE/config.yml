@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: "🌐 Live demo | دموی آنلاین"
+    url: https://karoangus.github.io/wallet-OS/
+    about: "Try the app in your browser first — your question may already be answered there."
+  - name: "📖 README & usage guide | راهنمای استفاده"
+    url: https://github.com/karoangus/wallet-OS#readme
+    about: "Quick tour, install instructions, backup help and privacy notes."
