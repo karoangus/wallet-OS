@@ -1,0 +1,168 @@
+name: "🐛 Bug report | گزارش باگ"
+description: "Something isn't working? Tell us what happened. | مشکلی پیش آمده؟ بگو چه اتفاقی افتاده."
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug! 💙 Fill in the sections below — the more detail you give, the faster we can fix it.
+        ممنون که باگ را گزارش می‌کنی! 💙 بخش‌های زیر را پر کن — هرچه جزئیات بیشتر، رفع سریع‌تر.
+        > 🔒 **Privacy:** WalletOS keeps everything on your device. Please **don't paste real financial data** or your full backup file here — use example numbers instead.
+        > 🔒 **حریم خصوصی:** همه‌چیز روی دستگاه خودت ذخیره می‌شود. لطفاً **اطلاعات مالی واقعی** یا فایل بکاپ را اینجا نگذار — با اعداد نمونه توضیح بده.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: "Describe the bug | باگ را توضیح بده"
+      description: "A clear, short description of what went wrong."
+      placeholder: |
+        Example: After I edit a transaction, its running balance shows the wrong amount.
+        مثال: بعد از ویرایش تراکنش، مانده لحظه‌ای آن اشتباه نمایش داده می‌شود.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: "Steps to reproduce | مراحل تکرار مشکل"
+      description: "Tell us exactly how to see the bug ourselves."
+      placeholder: |
+        1. Go to '...'
+        2. Tap / click on '...'
+        3. See the error
+        ---
+        ۱. برو به «...»
+        ۲. روی «...» بزن
+        ۳. خطا را ببین
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: "Expected behavior | رفتار مورد انتظار"
+      description: "What should have happened?"
+      placeholder: "Example: The balance should update to the new amount. / مثال: موجودی باید به‌روز می‌شد."
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: "Actual behavior | رفتار واقعی"
+      description: "What actually happened instead?"
+      placeholder: "Example: The balance stayed at the old value. / مثال: موجودی روی مقدار قبلی ماند."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: "Which part of the app? | مربوط به کدام بخش است؟"
+      description: "Pick the closest match — it helps us triage faster."
+      options:
+        - "🧾 Transactions (add / edit / list) | تراکنش‌ها"
+        - "💰 Balances & wallets (cash / bank) | موجودی و کیف پول‌ها"
+        - "📊 Budgets | بودجه‌ها"
+        - "🎯 Savings goals | اهداف پس‌انداز"
+        - "📈 Reports & insights | گزارش‌ها"
+        - "🏷️ Categories & tags | دسته‌بندی‌ها و برچسب‌ها"
+        - "📦 Backup / restore / reset | بکاپ و بازیابی"
+        - "📴 Offline mode / installing the app (PWA) | حالت آفلاین و نصب"
+        - "🌙 Display, language, dates or numbers | نمایش، زبان، تاریخ و اعداد"
+        - "Something else | چیز دیگری"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: running
+    attributes:
+      label: "How are you running the app? | اپ را چطور اجرا می‌کنی؟"
+      options:
+        - "🌐 Live demo (karoangus.github.io/wallet-OS)"
+        - "📲 Installed app (PWA / Add to Home Screen)"
+        - "💻 Local dev server (npm run dev)"
+        - "🖥️ My own hosting (Pages / Netlify / Vercel / ...)"
+        - "Other | چیز دیگری"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: device
+    attributes:
+      label: "Device | دستگاه"
+      options:
+        - "Android phone / tablet"
+        - "iPhone / iPad"
+        - "Windows PC"
+        - "Mac"
+        - "Linux"
+        - "Other | چیز دیگری"
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: "Browser + version | مرورگر و نسخه"
+      description: "Example: Chrome 126, Safari 17, Firefox 128, Edge 126..."
+      placeholder: "Example: Chrome 126 on Android / مثال: کروم ۱۲۶ در اندروید"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: "App version | نسخه اپ"
+      description: "Shown on the Settings page inside the app (current release: 2.0.0). If you're not sure, leave it blank."
+      placeholder: "Example: 2.0.0 / مثال: ۲.۰.۰"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: connectivity
+    attributes:
+      label: "Were you online or offline? | آنلاین بودی یا آفلاین؟"
+      description: "WalletOS works offline, so this really helps us diagnose the issue."
+      options:
+        - "I'm not sure | نمی‌دانم"
+        - "Online | آنلاین"
+        - "Offline | آفلاین"
+    validations:
+      required: false
+
+  - type: textarea
+    id: console
+    attributes:
+      label: "Console errors | خطای کنسول"
+      description: "If you can: press F12 → Console tab, reproduce the bug, and paste any red errors here. (Optional, but very helpful.)"
+      placeholder: "Paste console errors here, if any. / اگر خطایی در کنسول هست اینجا بگذار."
+      render: text
+    validations:
+      required: false
+
+  - type: upload
+    id: screenshots
+    attributes:
+      label: "Screenshots or video | اسکرین‌شات یا ویدیو"
+      description: "Drag & drop images or a short recording here — it helps a lot. Please hide personal amounts first!"
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: "Anything else? | چیز دیگری هست؟"
+      description: "Any other detail that might help (what you tried, when it started, etc.)."
+      placeholder: "Anything else you'd like to add. / اگر نکته دیگری هست بنویس."
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: "Before submitting | قبل از ثبت"
+      options:
+        - label: "I searched existing issues and didn't find a duplicate. | ایشوهای قبلی را جستجو کردم و مورد مشابهی نبود."
+        - label: "I removed real financial data from this report. | اطلاعات مالی واقعی را از این گزارش حذف کردم."
