@@ -2,7 +2,7 @@
 
 <img src="docs/screenshots/hero.png" alt="WalletOS — کیف پول دیجیتال" width="100%" />
 
-[![version](https://img.shields.io/badge/version-2.0.0-blue)](package.json)
+[![version](https://img.shields.io/badge/version-3.0.0-blue)](package.json)
 [![PWA](https://img.shields.io/badge/PWA-ready-purple)](manifest.json)
 ![offline](https://img.shields.io/badge/offline-100%25-success)
 [![dependencies](https://img.shields.io/badge/dependencies-zero-orange)](package.json)
@@ -38,9 +38,9 @@ https://karoangus.github.io/wallet-OS/
 | 🔍 | **جستجو و فیلتر** | جستجو در مبلغ و توضیحات + فیلتر بازه (امروز/هفته/ماه/سال)، نوع، کیف پول و دسته |
 | 📊 | **بودجه ماهانه** | سقف هزینه برای هر دسته با نوار پیشرفت و هشدار نزدیک‌شدن به سقف |
 | 🎯 | **اهداف پس‌انداز** | تعریف هدف، واریز مرحله‌ای، درصد پیشرفت و **تخمین زمان رسیدن** |
-| 📈 | **گزارش‌ها** | نمودار ۶ ماهه درآمد/هزینه، دونات تفکیک هزینه، **۶ بینش هوشمند** و ۵ هزینه برتر ماه |
+| 📈 | **گزارش‌ها** | نمودار ۶ ماهه درآمد/هزینه، دونات تفکیک هزینه، **۶ بینش هوشمند**، مانده ماه و ۵ هزینه برتر |
 | 🏷️ | **دسته‌بندی دلخواه** | ۱۱ دسته آماده + ساخت دسته با ۲۲ آیکون و ۱۲ رنگ؛ برچسب‌های دلخواه برای تراکنش‌ها |
-| 📦 | **بکاپ و بازیابی** | خروجی و ورودی JSON از همهٔ اطلاعات + ریست کامل |
+| 📦 | **بکاپ و بازیابی** | خروجی و ورودی JSON از همهٔ اطلاعات + **خروجی CSV** + ریست کامل |
 | 📴 | **آفلاین واقعی** | PWA با Service Worker؛ بدون اینترنت هم کامل کار می‌کند |
 | 🌙 | **فارسی و راست‌چین** | رابط کاملاً فارسی با فونت وزیرمتن، اعداد فارسی و تاریخ شمسی |
 | 🛡️ | **ضدخرابی** | درخواست حافظه ماندگار، صفحه ریکاوری هنگام خطا و ابزار ریست اضطراری |
@@ -175,10 +175,11 @@ python3 -m http.server 8080
 <div dir="ltr">
 
 ```
-index.html                 App shell + React bundle (the program)
+index.html                 App shell + React + WalletOS app (the program)
 sw.js                      Service worker: offline caching & updates
 offline.html               Offline fallback page
 manifest.json              PWA manifest (+ icons)
+scripts/app-src.js         Readable app source (concatenated into index.html)
 scripts/serve.mjs          Zero-dependency static dev server
 scripts/screenshots.mjs    Playwright pipeline: real browser captures
 scripts/mockups/           Deterministic vector gallery generator
@@ -229,10 +230,11 @@ await window.WOS.reset()   // clears caches, IndexedDB, SW — then reloads
 
 ## 🗺️ نقشه راه
 
-- [ ] استخراج باندل به ماژول‌های `src/` با باندرلر واقعی (قابلیت ریویو و تست)
-- [ ] تست واحد برای هلپرهای مالی/تاریخ (تبدیل شمسی، مانده، ریاضی بودجه)
+- [x] بازنویسی خوانای منطق اپ (`scripts/app-src.js`) + فیکس باگ‌های موجودی/تاریخ
+- [x] خروجی CSV کنار بکاپ JSON
+- [x] لیست تراکنش‌های سنگین با «نمایش بیشتر» (سبک و روان)
+- [ ] استخراج باندل به ماژول‌های `src/` با باندرلر واقعی
 - [ ] دیپلوی خودکار Pages روی `main`
-- [ ] خروجی CSV کنار بکاپ JSON
 - [ ] یادآور عبور از سقف بودجه (Web Notifications)
 
 ## 🤝 مشارکت
@@ -282,9 +284,10 @@ account, no server, no tracking. All data stays in your browser's IndexedDB.
 - 🎯 **Savings goals** with contributions, progress % and ETA estimate
 - 📈 **Reports**: 6-month income/expense chart, expense donut, 6 smart insights, top-5 expenses
 - 🏷️ **Custom categories & tags**: 11 built-ins + your own (22 icons, 12 colors)
-- 📦 **JSON backup / restore** + full reset
+- 📦 **JSON backup / restore** + **CSV export** + full reset
 - 📴 **Real offline PWA** with service worker — zero dependencies, zero build
 - 🌙 **Persian RTL UI** with Vazirmatn, Persian digits and Jalali calendar
+- ⚡ **v3 rewrite**: fixed balance math, local-date inputs, smoother lists, crash-safe load
 
 ## Quick start
 

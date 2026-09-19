@@ -16,7 +16,7 @@
  * SKIP_WAITING, which this worker honours immediately).
  * ========================================================================== */
 
-const VERSION = '2.0.0';
+const VERSION = '3.0.0';
 
 const SHELL_CACHE = `walletos-shell-${VERSION}`;
 const RUNTIME_CACHE = `walletos-runtime-${VERSION}`;
